@@ -14,7 +14,7 @@ const project = new typescript.TypeScriptProject({
     },
     exclude: ['node_modules', '@types/*'],
   },
-  deps: ['subgraph-isomorphism'], /* Runtime dependencies of this module. */
+  deps: ['subgraph-isomorphism', '@rimbu/bimap'], /* Runtime dependencies of this module. */
   // description: undefined,  /* The description is just a string that helps people understand the purpose of the package. */
   // devDeps: [],             /* Build dependencies for this module. */
   // packageName: undefined,  /* The "name" in package.json. */

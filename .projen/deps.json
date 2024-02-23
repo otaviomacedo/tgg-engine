@@ -68,6 +68,10 @@
       "type": "build"
     },
     {
+      "name": "@rimbu/bimap",
+      "type": "runtime"
+    },
+    {
       "name": "subgraph-isomorphism",
       "type": "runtime"
     }

@@ -15,18 +15,35 @@ export interface Node {
   readonly typeName: string;
   // We're not checking whether the data matches the type
   data: unknown;
+  readonly action?: Action;
 }
 
-export interface RuleNode extends Node {
+export interface CorrespondenceNode extends Node {
+  readonly sourceNodes: Node[];
+  readonly targetNodes: Node[];
 }
 
-export interface DomainNode extends RuleNode {
-  readonly action: Action;
-}
+class TripleGraph {
+  public readonly source: Graph;
+  public readonly target: Graph;
+  private readonly correspondenceNodes: CorrespondenceNode[];
 
-export interface CorrespondenceNode extends RuleNode {
-  readonly sourceNodes: Set<Node>;
-  readonly targetNodes: Set<Node>;
+  constructor() {
+    this.source = new Graph(20);
+    this.target = new Graph(20);
+    this.correspondenceNodes = [];
+  }
+
+  addNode(typeName: string, domain: Domain, action?: Action, data?: unknown): Node {
+    switch (domain) {
+      case Domain.SOURCE:
+        return this.source.addNode(typeName, action, data);
+      case Domain.TARGET:
+        return this.target.addNode(typeName, action, data);
+    }
+  }
+
+
 }
 
 class Graph {
@@ -50,6 +67,34 @@ class Graph {
 
   get adjacencyMatrix(): number[][] {
     return this._adjacencyMatrix;
+  }
+
+  addNode(typeName: string, action?: Action, data?: unknown): Node {
+    const node: Node = {
+      id: this.nodes.length,
+      typeName,
+      data,
+      action,
+    };
+
+    this.nodes.push(node);
+
+    return node;
+  }
+
+  addCorrespondenceNode(typeName: string, sourceNodes: Node[], targetNodes: Node[], data?: unknown): CorrespondenceNode {
+    // TODO Validate whether source nodes and target nodes are in the source and target, respectively
+    const node: CorrespondenceNode = {
+      id: this.nodes.length,
+      typeName,
+      data,
+      sourceNodes: sourceNodes,
+      targetNodes: targetNodes,
+    };
+
+    this.nodes.push(node);
+
+    return node;
   }
 
 }
@@ -81,135 +126,11 @@ class SubGraph extends Graph {
   }
 }
 
-export class HostGraph extends Graph {
-  addNode(typeName: string, data?: unknown): Node {
-    const node: Node = {
-      id: this.nodes.length,
-      typeName,
-      data,
-    };
-
-    this.nodes.push(node);
-
-    return node;
-  }
-
-}
-
-export class Rule extends Graph {
-  // TODO All graphs should have these properties
-  private readonly source: Set<DomainNode> = new Set();
-  private readonly target: Set<DomainNode> = new Set();
-  private correspondence?: CorrespondenceNode;
-
-  addDomainNode(typeName: string, domain: Domain, action: Action, data?: unknown): DomainNode {
-    const node: DomainNode = {
-      id: this.nodes.length,
-      typeName,
-      data,
-      action,
-    };
-
-    this.nodes.push(node);
-
-    switch (domain) {
-      case Domain.SOURCE:
-        this.source.add(node);
-        break;
-      case Domain.TARGET:
-        this.target.add(node);
-        break;
-    }
-
-    return node;
-  }
-
-  addCorrespondenceNode(typeName: string, source: DomainNode[], target: DomainNode[], data?: unknown): CorrespondenceNode {
-    if (
-      source.some(n => !this.source.has(n)) ||
-      target.some(n => !this.target.has(n))
-    ) {
-      throw new Error('Node is in the incorrect domain');
-    }
-
-    this.correspondence = {
-      id: this.nodes.length,
-      typeName,
-      data,
-      sourceNodes: new Set(source),
-      targetNodes: new Set(target),
-    };
-
-    source.forEach(n => {
-      this.addEdge(this.correspondence!, n);
-    });
-    target.forEach(n => {
-      this.addEdge(this.correspondence!, n);
-    });
-
-    this.nodes.push(this.correspondence);
-
-    return this.correspondence;
-  }
-
-  getSource(): Graph {
-    return new SubGraph(this, [...this.source].map(node => node.id));
-  }
-
-  getTarget(): Graph {
-    return new SubGraph(this, [...this.target].map(node => node.id));
-  }
-
-  getSubGraph(domain: Domain) {
-    switch (domain) {
-      case Domain.SOURCE:
-        return new SubGraph(this, [...this.source].map(node => node.id));
-      case Domain.TARGET:
-        return new SubGraph(this, [...this.target].map(node => node.id));
-    }
-  }
-
-  getNodes(domain: Domain, action: Action): Node[] {
-    switch (domain) {
-      case Domain.SOURCE:
-        return [...this.source].filter(n => n.action === action);
-      case Domain.TARGET:
-        return [...this.target].filter(n => n.action === action);
-    }
-  }
-
-  getEdges(domain: Domain): [Node, Node][] {
-    const result: [Node, Node][] = [];
-    this.adjacencyMatrix.forEach((row, i) => {
-      row.forEach((value, j) => {
-        if (value > 0 && (isNodeInDomain(this.getNode(i) as DomainNode) && isNodeInDomain(this.getNode(j) as DomainNode))) {
-          result.push([this.getNode(i), this.getNode(j)]);
-        }
-      });
-    });
-
-    const isNodeInDomain = (node: DomainNode): boolean => {
-      switch (domain) {
-        case Domain.SOURCE:
-          return this.source.has(node);
-        case Domain.TARGET:
-          return this.target.has(node);
-      }
-    };
-
-    return result;
-  }
-
-  get correspondenceNode(): CorrespondenceNode {
-    return this.correspondence!;
-  }
-}
-
 export class Engine {
-  constructor(private readonly rules: Rule[]) {
+  constructor(private readonly rules: TripleGraph[]) {
   }
 
-  public translateForward(graph: HostGraph) {
+  public translateForward(graph: TripleGraph): TripleGraph {
     for (let rule of this.rules) {
       const match = this.findMatch(rule, graph);
 
@@ -219,9 +140,8 @@ export class Engine {
     }
   }
 
-  public findMatch(rule: Rule, graph: Graph): number[][] | undefined {
-    // We only want to match the LHS of the rule against the graph
-    const lhs = rule.getSource();
+  public findMatch(rule: TripleGraph, graph: Graph): number[][] | undefined {
+    const lhs = rule.source;
     const matches = getIsomorphicSubgraphs(graph.adjacencyMatrix, lhs.adjacencyMatrix);
     return matches.find(match => typesMatch(match, graph, lhs));
 
@@ -239,7 +159,7 @@ export class Engine {
     }
   }
 
-  public apply(match: number[][], rule: Rule, graph: HostGraph): HostGraph {
+  public apply(match: number[][], rule: TripleGraph, graph: TripleGraph): HostGraph {
     // TODO Make domain a parameter to be able to translate in both directions
     const table: Map<RuleNode, Node> = new Map();
     for (let ruleNode of rule.getNodes(Domain.TARGET, Action.CREATE)) {
