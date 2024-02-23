@@ -168,53 +168,38 @@ export class Graph {
    */
   context(domain: Domain): Graph {
     const edges = this.edges.filter(edge => edge.action === Action.PRESERVE);
+    const nodesUsed = new Set(edges.flatMap(e => e.nodes));
 
-    const nodesUsed = edges.flatMap(e => e.nodes);
     const graph = new Graph(edges);
+    this.nodes
+      .filter(([_, node]) => !nodesUsed.has(node))
+      .filter(([_, node]) => node.domain === domain || node.action === Action.PRESERVE)
+      .forEach(([_, node]) => graph.addNode(node));
 
-
-    this.nodes.forEach(([_, node]) => {
-      if (node.domain === domain || node.action === Action.PRESERVE) {
-        graph.addNode(node);
-      }
-    });
     return graph;
   }
 
-  creators(domain: Domain): Graph {
+  /**
+   * Every CREATE element. Needs an additional filter to decide what
+   * to actually add to the host graph.
+   */
+  creators(): Graph {
     // FIXME This logic will skip any standalone node that is created.
     const edgeSet = new Set<Edge>();
 
     this.edges
       .forEach(edge => {
-        if (edge.action === Action.CREATE && zee(edge)) {
+        if (edge.action === Action.CREATE) {
           edgeSet.add(edge);
         }
       });
 
-    function bar(node: Node): boolean {
-      return node.domain === Domain.CORRESPONDENCE || node.domain === domain;
-    }
-
-    function zee(edge: Edge): boolean {
-      return bar(edge.nodes[0]) || bar(edge.nodes[1]);
-    }
-
-    const nodeBuilder = BiMap.builder<number, Node>();
-    let idx = 0;
-    const edges = [...edgeSet];
-    edges
-      .flatMap(e => e.nodes)
-      .forEach(n => nodeBuilder.addEntry([idx++, n]));
-
-
-    return new Graph(edges);
+    return new Graph([...edgeSet]);
   }
 
   toString(): string {
     const result: string[] = [];
     this.edges.forEach(edge => {
-      // result.push(`${this.nodes.getKey(edge.nodes[0])} (${edge.nodes[0].type}) -> ${this.nodes.getKey(edge.nodes[1])} (${edge.nodes[1].type})`);
       result.push(`${edge.nodes[0].type}_${this.nodes.getKey(edge.nodes[0])} -> ${edge.nodes[1].type}_${this.nodes.getKey(edge.nodes[1])}`);
     });
 
@@ -236,24 +221,22 @@ export class Engine {
     return this.translate(host, Domain.TARGET, Domain.SOURCE);
   }
 
-  translate(host: Graph, frm: Domain, to: Domain) {
+  translate(host: Graph, frm: Domain, _to: Domain) {
     let matchFound = false;
     while (true) {
       matchFound = false;
 
       for (let rule of this.rules) {
-        // console.log(rule.context(frm).toString());
-        // console.log(host.toString());
-        // console.log('-----------------------------------');
         const match = host.findMatch(rule, frm);
 
         matchFound = match.size > 0;
 
         if (matchFound) {
-          const creators = rule.creators(to);
+          const creators = rule.creators();
 
           creators.nodes
-            .filter(([_, node]) => node.domain !== frm)
+            // Only add what has not been matched
+            .filter(([_, node]) => !match.has(node))
             .forEach(([_, node]) => {
               const newNode = Nodes.newNode(node.type, node.domain);
               host.addNode(newNode);

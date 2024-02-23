@@ -21,7 +21,7 @@ test('Queue triggers function', () => {
 
   // Queue axiom
   const q_a_s = Nodes.newNode('Queue', Domain.SOURCE, Action.CREATE);
-  const q_a_t = Nodes.newNode('Queue', Domain.TARGET, Action.CREATE);
+  const q_a_t = Nodes.newNode('CfnQueue', Domain.TARGET, Action.CREATE);
   const queueCorr = Nodes.newNode('QueueAxiom', Domain.CORRESPONDENCE, Action.CREATE);
 
   const queueAxiom = new Graph([
@@ -35,7 +35,7 @@ test('Queue triggers function', () => {
 
   // Function axiom
   const f_a_s = Nodes.newNode('Function', Domain.SOURCE, Action.CREATE);
-  const f_a_t = Nodes.newNode('Function', Domain.TARGET, Action.CREATE);
+  const f_a_t = Nodes.newNode('CfnFunction', Domain.TARGET, Action.CREATE);
   const functionCorr = Nodes.newNode('FunctionAxiom', Domain.CORRESPONDENCE, Action.CREATE);
 
   const functionAxiom = new Graph([
@@ -52,10 +52,10 @@ test('Queue triggers function', () => {
   // Triggers
   const q_s = Nodes.newNode('Queue', Domain.SOURCE, Action.PRESERVE);
   const f_s = Nodes.newNode('Function', Domain.SOURCE, Action.PRESERVE);
-  const q_t = Nodes.newNode('Queue', Domain.TARGET, Action.PRESERVE);
-  const f_t = Nodes.newNode('Function', Domain.TARGET, Action.PRESERVE);
-  const e = Nodes.newNode('EventSourceMapping', Domain.TARGET, Action.CREATE);
-  const r = Nodes.newNode('Role', Domain.TARGET, Action.CREATE);
+  const q_t = Nodes.newNode('CfnQueue', Domain.TARGET, Action.PRESERVE);
+  const f_t = Nodes.newNode('CfnFunction', Domain.TARGET, Action.PRESERVE);
+  const e = Nodes.newNode('CfnEventSourceMapping', Domain.TARGET, Action.CREATE);
+  const r = Nodes.newNode('CfnRole', Domain.TARGET, Action.CREATE);
   const q_c = Nodes.newNode('QueueAxiom', Domain.CORRESPONDENCE, Action.PRESERVE);
   const f_c = Nodes.newNode('FunctionAxiom', Domain.CORRESPONDENCE, Action.PRESERVE);
   const t_c = Nodes.newNode('Triggers', Domain.CORRESPONDENCE, Action.CREATE);
@@ -105,7 +105,7 @@ test('Queue triggers function', () => {
     },
   ]);
 
-  console.log(queueTriggersFunction.context(Domain.SOURCE).toString());
+  // console.log(queueTriggersFunction.context(Domain.SOURCE).toString());
 
   const engine = new Engine([
     queueAxiom,
@@ -117,6 +117,6 @@ test('Queue triggers function', () => {
 
   engine.translateForward(host);
 
-  // console.log(host.toString());
+  console.log(host.toString());
 });
 
