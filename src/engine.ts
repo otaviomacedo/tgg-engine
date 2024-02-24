@@ -236,6 +236,7 @@ export class Engine {
     return this.translate(host, Domain.TARGET, Domain.SOURCE);
   }
 
+  // TODO Strip out the source and correspondence
   private translate(host: Graph, frm: Domain, _to: Domain) {
     let graphModified: boolean;
     while (true) {

@@ -86,7 +86,15 @@ test('Queue triggers function - translate backward', () => {
     },
   ]);
 
-  engine.translateBackward(host);
+  const engine2 = new Engine([
+    axiom('Queue'),
+    axiom('Function'),
+    // createTriggers(),
+    triggers(),
+  ]);
+
+
+  engine2.translateBackward(host);
 
   console.log(host.toString());
 
