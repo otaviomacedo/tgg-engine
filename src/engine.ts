@@ -148,8 +148,11 @@ export class Graph {
     };
 
 
-    // Whether this map contains a correspondence node that would be created again
-    // (i.e., with the same type and pointing to the same nodes in the matching domain)
+    /**
+     * Whether this map contains a correspondence node that would be created again
+     * (i.e., with the same type and pointing to the same nodes in the matching domain)
+     * This would be more elegantly done with negative application conditions
+     */
     const correspondenceDuplicateFree = (map: Map<Node, Node>): boolean => {
       const ruleTypes = new Set(rule
         .nodes
@@ -209,11 +212,11 @@ export class Graph {
   }
 
   toString(): string {
-    const result: string[] = [];
+    const result: string[] = ['digraph G {'];
     this.edges.forEach(edge => {
-      // result.push(`${edge.nodes[0].type}_${this.nodes.getKey(edge.nodes[0])} -> ${edge.nodes[1].type}_${this.nodes.getKey(edge.nodes[1])}`);
-      result.push(`${edge.nodes[0].type}_${edge.nodes[0].data} -> ${edge.nodes[1].type}_${edge.nodes[1].data}`);
+      result.push(`\t${edge.nodes[0].type}_${edge.nodes[0].data} -> ${edge.nodes[1].type}_${edge.nodes[1].data}`);
     });
+    result.push('}');
 
     return result.join('\n');
   }
@@ -233,7 +236,7 @@ export class Engine {
     return this.translate(host, Domain.TARGET, Domain.SOURCE);
   }
 
-  translate(host: Graph, frm: Domain, _to: Domain) {
+  private translate(host: Graph, frm: Domain, _to: Domain) {
     let matchFound = false;
     while (true) {
       matchFound = false;
@@ -244,9 +247,9 @@ export class Engine {
         matchFound = match.size > 0;
 
         if (matchFound) {
-          const creators = rule.creators();
+          const creator = rule.creators();
 
-          creators.nodes
+          creator.nodes
             // Only add what has not been matched
             .filter(([_, node]) => !match.has(node))
             .forEach(([_, node]) => {
@@ -255,7 +258,7 @@ export class Engine {
               match.set(node, newNode);
             });
 
-          creators.edges.forEach(edge => {
+          creator.edges.forEach(edge => {
             const newEdge: Edge = {
               type: edge.type,
               action: undefined,

@@ -1,6 +1,13 @@
 import { Action, Domain, Engine, Graph, Nodes } from '../src/engine';
 
-test('Queue triggers function', () => {
+const engine = new Engine([
+  axiom('Queue'),
+  axiom('Function'),
+  triggers(),
+]);
+
+
+test('Queue triggers function - translate forward', () => {
   const q1 = Nodes.newNode('Queue', Domain.SOURCE);
   const q2 = Nodes.newNode('Queue', Domain.SOURCE);
   const f = Nodes.newNode('Function', Domain.SOURCE);
@@ -9,7 +16,6 @@ test('Queue triggers function', () => {
     {
       nodes: [q1, f],
       type: 'Triggers',
-
     },
     {
       nodes: [q2, f],
@@ -17,39 +23,89 @@ test('Queue triggers function', () => {
     },
   ]);
 
-  // AXIOMS
+  engine.translateForward(host);
 
-  // Queue axiom
-  const q_a_s = Nodes.newNode('Queue', Domain.SOURCE, Action.CREATE);
-  const q_a_t = Nodes.newNode('CfnQueue', Domain.TARGET, Action.CREATE);
-  const queueCorr = Nodes.newNode('QueueAxiom', Domain.CORRESPONDENCE, Action.CREATE);
+  // Use Graphviz to visualize this
+  expect(host.toString()).toEqual(`digraph G {
+\tQueue_15 -> Function_17
+\tQueue_16 -> Function_17
+\tQueueAxiom_18 -> Queue_15
+\tQueueAxiom_18 -> CfnQueue_19
+\tQueueAxiom_20 -> Queue_16
+\tQueueAxiom_20 -> CfnQueue_21
+\tFunctionAxiom_22 -> Function_17
+\tFunctionAxiom_22 -> CfnFunction_23
+\tCfnEventSourceMapping_24 -> CfnQueue_19
+\tCfnEventSourceMapping_24 -> CfnFunction_23
+\tCfnFunction_23 -> CfnRole_25
+\tTriggers_26 -> Queue_15
+\tTriggers_26 -> Function_17
+\tTriggers_26 -> CfnEventSourceMapping_24
+\tTriggers_26 -> CfnRole_25
+\tTriggers_26 -> CfnQueue_19
+\tTriggers_26 -> CfnFunction_23
+\tCfnEventSourceMapping_27 -> CfnQueue_21
+\tCfnEventSourceMapping_27 -> CfnFunction_23
+\tCfnFunction_23 -> CfnRole_28
+\tTriggers_29 -> Queue_16
+\tTriggers_29 -> Function_17
+\tTriggers_29 -> CfnEventSourceMapping_27
+\tTriggers_29 -> CfnRole_28
+\tTriggers_29 -> CfnQueue_21
+\tTriggers_29 -> CfnFunction_23
+}`);
+});
 
-  const queueAxiom = new Graph([
+
+test('Queue triggers function - translate backward', () => {
+  const q1 = Nodes.newNode('CfnQueue', Domain.TARGET);
+  const e1 = Nodes.newNode('CfnEventSourceMapping', Domain.TARGET);
+  const q2 = Nodes.newNode('CfnQueue', Domain.TARGET);
+  const e2 = Nodes.newNode('CfnEventSourceMapping', Domain.TARGET);
+  const f = Nodes.newNode('CfnFunction', Domain.TARGET);
+  const r = Nodes.newNode('CfnRole', Domain.TARGET);
+
+  const host = new Graph([
     {
-      nodes: [queueCorr, q_a_s], action: Action.CREATE,
+      nodes: [e1, q1],
     },
     {
-      nodes: [queueCorr, q_a_t], action: Action.CREATE,
+      nodes: [e1, f],
+    },
+    {
+      nodes: [e2, q2],
+    },
+    {
+      nodes: [e2, f],
+    },
+    {
+      nodes: [f, r],
     },
   ]);
 
-  // Function axiom
-  const f_a_s = Nodes.newNode('Function', Domain.SOURCE, Action.CREATE);
-  const f_a_t = Nodes.newNode('CfnFunction', Domain.TARGET, Action.CREATE);
-  const functionCorr = Nodes.newNode('FunctionAxiom', Domain.CORRESPONDENCE, Action.CREATE);
+  engine.translateBackward(host);
 
-  const functionAxiom = new Graph([
+  console.log(host.toString());
+
+});
+
+
+function axiom(type: string): Graph {
+  const source = Nodes.newNode(type, Domain.SOURCE, Action.CREATE);
+  const target = Nodes.newNode(`Cfn${type}`, Domain.TARGET, Action.CREATE);
+  const corr = Nodes.newNode(`${type}Axiom`, Domain.CORRESPONDENCE, Action.CREATE);
+
+  return new Graph([
     {
-      nodes: [functionCorr, f_a_s], action: Action.CREATE,
+      nodes: [corr, source], action: Action.CREATE,
     },
     {
-      nodes: [functionCorr, f_a_t], action: Action.CREATE,
+      nodes: [corr, target], action: Action.CREATE,
     },
   ]);
+}
 
-  // ABSTRACTIONS
-
-  // Triggers
+function triggers(): Graph {
   const q_s = Nodes.newNode('Queue', Domain.SOURCE, Action.PRESERVE);
   const f_s = Nodes.newNode('Function', Domain.SOURCE, Action.PRESERVE);
   const q_t = Nodes.newNode('CfnQueue', Domain.TARGET, Action.PRESERVE);
@@ -60,7 +116,7 @@ test('Queue triggers function', () => {
   const f_c = Nodes.newNode('FunctionAxiom', Domain.CORRESPONDENCE, Action.PRESERVE);
   const t_c = Nodes.newNode('Triggers', Domain.CORRESPONDENCE, Action.CREATE);
 
-  const queueTriggersFunction = new Graph([
+  return new Graph([
     {
       nodes: [q_s, f_s], action: Action.PRESERVE,
     },
@@ -104,19 +160,4 @@ test('Queue triggers function', () => {
       nodes: [t_c, f_t], action: Action.CREATE,
     },
   ]);
-
-  // console.log(queueTriggersFunction.context(Domain.SOURCE).toString());
-
-  const engine = new Engine([
-    queueAxiom,
-    functionAxiom,
-    queueTriggersFunction,
-  ]);
-
-  // console.log(host.toString());
-
-  engine.translateForward(host);
-
-  console.log(host.toString());
-});
-
+}
