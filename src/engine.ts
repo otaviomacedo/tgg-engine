@@ -41,6 +41,7 @@ export class Graph {
 
   constructor(
     public readonly edges: Edge[],
+    public readonly name?: string,
   ) {
     this.adjacencyMatrix = [];
     const nodesBuilder = BiMap.builder<number, Node>();
@@ -181,7 +182,10 @@ export class Graph {
    * Subgraph with elements to be preserved
    */
   context(domain: Domain): Graph {
-    const edges = this.edges.filter(edge => edge.action === Action.PRESERVE);
+    const edges = this.edges
+      .filter(edge => edge.action === Action.PRESERVE)
+      .concat(this.edges.filter(edge => edge.nodes.every(node => node.domain === domain)));
+
     const nodesUsed = new Set(edges.flatMap(e => e.nodes));
 
     const graph = new Graph(edges);
@@ -197,7 +201,7 @@ export class Graph {
    * Every CREATE element. Needs an additional filter to decide what
    * to actually add to the host graph.
    */
-  creators(): Graph {
+  creator(): Graph {
     // FIXME This logic will skip any standalone node that is created.
     const edgeSet = new Set<Edge>();
 
@@ -208,7 +212,7 @@ export class Graph {
         }
       });
 
-    return new Graph([...edgeSet]);
+    return new Graph([...edgeSet], this.name + '_creator');
   }
 
   toString(): string {
@@ -244,7 +248,7 @@ export class Engine {
 
       for (let rule of this.rules) {
         const match = host.findMatch(rule, frm);
-        const creator = rule.creators();
+        const creator = rule.creator();
 
         if (match.size > 0 && !creator.nodes.isEmpty) {
           creator.nodes

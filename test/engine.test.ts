@@ -3,7 +3,6 @@ import { Action, Domain, Engine, Graph, Nodes } from '../src/engine';
 const engine = new Engine([
   axiom('Queue'),
   axiom('Function'),
-  createTriggers(),
   triggers(),
 ]);
 
@@ -25,19 +24,24 @@ test('Queue triggers function - translate forward', () => {
   ]);
 
   const result = engine.translateForward(host);
+  console.log(result.toString());
 
   // Use Graphviz to visualize this
   // TODO Merge Roles
   expect(result.toString()).toEqual(`digraph G {
-\tCfnEventSourceMapping_26 -> CfnQueue_21
-\tCfnEventSourceMapping_26 -> CfnFunction_25
-\tCfnFunction_25 -> CfnRole_27
-\tCfnEventSourceMapping_29 -> CfnQueue_23
-\tCfnEventSourceMapping_29 -> CfnFunction_25
-\tCfnFunction_25 -> CfnRole_30
+\tCfnEventSourceMapping_24 -> CfnQueue_19
+\tCfnEventSourceMapping_24 -> CfnFunction_23
+\tCfnFunction_23 -> CfnRole_25
+\tCfnEventSourceMapping_27 -> CfnQueue_21
+\tCfnEventSourceMapping_27 -> CfnFunction_23
+\tCfnFunction_23 -> CfnRole_28
 }`);
 });
 
+test('context', () => {
+  // console.log(triggers().context(Domain.TARGET).toString());
+  console.log(axiom('Queue').context(Domain.SOURCE).toString());
+});
 
 test('Queue triggers function - translate backward', () => {
   const q1 = Nodes.newNode('CfnQueue', Domain.TARGET);
@@ -65,20 +69,11 @@ test('Queue triggers function - translate backward', () => {
     },
   ]);
 
-  const engine2 = new Engine([
-    axiom('Queue'),
-    axiom('Function'),
-    // createTriggers(),
-    triggers(),
-  ]);
-
-
-  const result = engine2.translateBackward(host);
+  const result = engine.translateBackward(host);
 
   console.log(result.toString());
 
 });
-
 
 function axiom(type: string): Graph {
   const source = Nodes.newNode(type, Domain.SOURCE, Action.CREATE);
@@ -92,20 +87,7 @@ function axiom(type: string): Graph {
     {
       nodes: [corr, target], action: Action.CREATE,
     },
-  ]);
-}
-
-function createTriggers(): Graph {
-  const q = Nodes.newNode('Queue', Domain.SOURCE, Action.CREATE);
-  const f = Nodes.newNode('Function', Domain.SOURCE, Action.CREATE);
-
-  return new Graph([
-    {
-      nodes: [q, f],
-      type: 'Triggers',
-    },
-  ]);
-
+  ], `${type}Axiom`);
 }
 
 function triggers(): Graph {
@@ -121,7 +103,7 @@ function triggers(): Graph {
 
   return new Graph([
     {
-      nodes: [q_s, f_s], action: Action.PRESERVE,
+      nodes: [q_s, f_s], action: Action.CREATE,
     },
     {
       nodes: [q_c, q_s], action: Action.PRESERVE,
@@ -162,5 +144,5 @@ function triggers(): Graph {
     {
       nodes: [t_c, f_t], action: Action.CREATE,
     },
-  ]);
+  ], 'triggers');
 }
