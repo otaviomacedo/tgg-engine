@@ -237,18 +237,15 @@ export class Engine {
   }
 
   private translate(host: Graph, frm: Domain, _to: Domain) {
-    let matchFound = false;
+    let graphModified: boolean;
     while (true) {
-      matchFound = false;
+      graphModified = false;
 
       for (let rule of this.rules) {
         const match = host.findMatch(rule, frm);
+        const creator = rule.creators();
 
-        matchFound = match.size > 0;
-
-        if (matchFound) {
-          const creator = rule.creators();
-
+        if (match.size > 0 && !creator.nodes.isEmpty) {
           creator.nodes
             // Only add what has not been matched
             .filter(([_, node]) => !match.has(node))
@@ -267,11 +264,12 @@ export class Engine {
             host.addEdge(newEdge);
           });
 
+          graphModified = true;
           break;
         }
       }
 
-      if (!matchFound) return;
+      if (!graphModified) return;
     }
   }
 }
