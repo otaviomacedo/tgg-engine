@@ -27,6 +27,7 @@ export interface Edge {
 
 export class Nodes {
   private static idCounter = 0;
+
   static newNode(type: string, domain: Domain, action?: Action): Node {
     return {
       type, domain, action, data: Nodes.idCounter++,
@@ -70,20 +71,45 @@ export class Graph {
     });
   }
 
-  correspondenceNodesAdjacentTo(node: Node): Node[] {
-    const j = this.nodes.getKey(node)!;
-
+  outNeighbors(node: Node): Node[] {
+    const i = this.nodes.getKey(node)!;
     const result: Node[] = [];
-    this.adjacencyMatrix.forEach((row, i) => {
-      if (row[j] > 0) {
-        const n = this.nodes.getValue(i)!;
-        if (n.domain === Domain.CORRESPONDENCE) {
-          result.push(n);
-        }
+
+    for (let j = 0; j < this.adjacencyMatrix.length; j++) {
+      if (this.adjacencyMatrix[i][j] > 0) {
+        result.push(this.nodes.getValue(j)!);
       }
-    });
+    }
 
     return result;
+  }
+
+  correspondenceNodesTo(nodes: Set<Node>, domain: Domain): Node[] {
+    const result: Node[] = [];
+    for (let i = 0; i < this.adjacencyMatrix.length; i++) {
+      const node = this.nodes.getValue(i)!;
+      if (node.domain === Domain.CORRESPONDENCE) {
+        const outNeighbors = new Set(this.outNeighbors(node).filter(n => n.domain === domain));
+
+        if (isEqualSets(outNeighbors, filter(nodes, n => n.domain === domain))) {
+          result.push(node);
+        }
+      }
+    }
+    return result;
+
+    // const result: Node[] = [];
+    // for (let i = 0; i < this.adjacencyMatrix.length; i++) {
+    //   const foo = new Set(this.adjacencyMatrix[i]
+    //     .filter((v, i) => v > 0)
+    //     .map(j => this.nodes.getValue(j)!)
+    //     .filter(node => node.domain === Domain.CORRESPONDENCE));
+    //
+    //   if (isEqualSets(foo, nodes)) {
+    //     result.push(this.nodes.getValue(i)!);
+    //   }
+    // }
+    // return result;
   }
 
   addNode(node: Node) {
@@ -135,23 +161,19 @@ export class Graph {
     // Whether this map contains a correspondence node that would be created again
     // (i.e., with the same type and pointing to the same nodes in the matching domain)
     const correspondenceDuplicateFree = (map: Map<Node, Node>): boolean => {
-      for (let [p, h] of map.entries()) {
-        if (p.domain === domain) {
-          const patternCorrNodes = rule
-            .correspondenceNodesAdjacentTo(p)
-            .filter(n => n.action == Action.CREATE)
-            .map(n => n.type);
+      const ruleTypes = new Set(rule
+        .nodes
+        .keyValueMap
+        .toArray()
+        .map(([_, node]) => node)
+        .filter(node => node.domain === Domain.CORRESPONDENCE && node.action === Action.CREATE)
+        .map(node => node.type));
 
-          const hostCorrNodes = this
-            .correspondenceNodesAdjacentTo(h)
-            .map(n => n.type);
+      const thisTypes = new Set(this
+        .correspondenceNodesTo(new Set(map.values()), domain)
+        .map(node => node.type));
 
-          if (patternCorrNodes.some(t => hostCorrNodes.includes(t))) {
-            return false;
-          }
-        }
-      }
-      return true;
+      return !isSubsetOf(ruleTypes, thisTypes);
     };
 
     const matches = getIsomorphicSubgraphs(this.adjacencyMatrix, pattern.adjacencyMatrix);
@@ -161,7 +183,6 @@ export class Graph {
       .map(makeMapping)
       .find(correspondenceDuplicateFree) ?? new Map();
   }
-
 
   /**
    * Subgraph with elements to be preserved
@@ -200,7 +221,8 @@ export class Graph {
   toString(): string {
     const result: string[] = [];
     this.edges.forEach(edge => {
-      result.push(`${edge.nodes[0].type}_${this.nodes.getKey(edge.nodes[0])} -> ${edge.nodes[1].type}_${this.nodes.getKey(edge.nodes[1])}`);
+      // result.push(`${edge.nodes[0].type}_${this.nodes.getKey(edge.nodes[0])} -> ${edge.nodes[1].type}_${this.nodes.getKey(edge.nodes[1])}`);
+      result.push(`${edge.nodes[0].type}_${edge.nodes[0].data} -> ${edge.nodes[1].type}_${edge.nodes[1].data}`);
     });
 
     return result.join('\n');
@@ -259,4 +281,19 @@ export class Engine {
       if (!matchFound) return;
     }
   }
+}
+
+function isEqualSets<A>(a: Set<A>, b: Set<A>): boolean {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const value of a) if (!b.has(value)) return false;
+  return true;
+}
+
+function isSubsetOf<A>(a: Set<A>, b: Set<A>): boolean {
+  return [...a].every(x => b.has(x));
+}
+
+function filter<A>(set: Set<A>, predicate: (a: A) => boolean): Set<A> {
+  return new Set([...set].filter(predicate));
 }
