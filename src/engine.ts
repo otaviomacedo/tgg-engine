@@ -84,6 +84,9 @@ export class Graph {
     return result;
   }
 
+  /**
+   * Finds the correspondence nodes that point to all the input nodes that are in the input domain
+   */
   correspondenceNodesTo(nodes: Set<Node>, domain: Domain): Node[] {
     const result: Node[] = [];
     for (let i = 0; i < this.adjacencyMatrix.length; i++) {
@@ -97,19 +100,6 @@ export class Graph {
       }
     }
     return result;
-
-    // const result: Node[] = [];
-    // for (let i = 0; i < this.adjacencyMatrix.length; i++) {
-    //   const foo = new Set(this.adjacencyMatrix[i]
-    //     .filter((v, i) => v > 0)
-    //     .map(j => this.nodes.getValue(j)!)
-    //     .filter(node => node.domain === Domain.CORRESPONDENCE));
-    //
-    //   if (isEqualSets(foo, nodes)) {
-    //     result.push(this.nodes.getValue(i)!);
-    //   }
-    // }
-    // return result;
   }
 
   addNode(node: Node) {
