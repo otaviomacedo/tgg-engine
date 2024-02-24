@@ -3,6 +3,7 @@ import { Action, Domain, Engine, Graph, Nodes } from '../src/engine';
 const engine = new Engine([
   axiom('Queue'),
   axiom('Function'),
+  createTriggers(),
   triggers(),
 ]);
 
@@ -25,34 +26,36 @@ test('Queue triggers function - translate forward', () => {
 
   engine.translateForward(host);
 
+  console.log(host.toString());
+
   // Use Graphviz to visualize this
   expect(host.toString()).toEqual(`digraph G {
-\tQueue_15 -> Function_17
-\tQueue_16 -> Function_17
-\tQueueAxiom_18 -> Queue_15
-\tQueueAxiom_18 -> CfnQueue_19
-\tQueueAxiom_20 -> Queue_16
+\tQueue_17 -> Function_19
+\tQueue_18 -> Function_19
+\tQueueAxiom_20 -> Queue_17
 \tQueueAxiom_20 -> CfnQueue_21
-\tFunctionAxiom_22 -> Function_17
-\tFunctionAxiom_22 -> CfnFunction_23
-\tCfnEventSourceMapping_24 -> CfnQueue_19
-\tCfnEventSourceMapping_24 -> CfnFunction_23
-\tCfnFunction_23 -> CfnRole_25
-\tTriggers_26 -> Queue_15
-\tTriggers_26 -> Function_17
-\tTriggers_26 -> CfnEventSourceMapping_24
-\tTriggers_26 -> CfnRole_25
-\tTriggers_26 -> CfnQueue_19
-\tTriggers_26 -> CfnFunction_23
-\tCfnEventSourceMapping_27 -> CfnQueue_21
-\tCfnEventSourceMapping_27 -> CfnFunction_23
-\tCfnFunction_23 -> CfnRole_28
-\tTriggers_29 -> Queue_16
-\tTriggers_29 -> Function_17
-\tTriggers_29 -> CfnEventSourceMapping_27
-\tTriggers_29 -> CfnRole_28
-\tTriggers_29 -> CfnQueue_21
-\tTriggers_29 -> CfnFunction_23
+\tQueueAxiom_22 -> Queue_18
+\tQueueAxiom_22 -> CfnQueue_23
+\tFunctionAxiom_24 -> Function_19
+\tFunctionAxiom_24 -> CfnFunction_25
+\tCfnEventSourceMapping_26 -> CfnQueue_21
+\tCfnEventSourceMapping_26 -> CfnFunction_25
+\tCfnFunction_25 -> CfnRole_27
+\tTriggers_28 -> Queue_17
+\tTriggers_28 -> Function_19
+\tTriggers_28 -> CfnEventSourceMapping_26
+\tTriggers_28 -> CfnRole_27
+\tTriggers_28 -> CfnQueue_21
+\tTriggers_28 -> CfnFunction_25
+\tCfnEventSourceMapping_29 -> CfnQueue_23
+\tCfnEventSourceMapping_29 -> CfnFunction_25
+\tCfnFunction_25 -> CfnRole_30
+\tTriggers_31 -> Queue_18
+\tTriggers_31 -> Function_19
+\tTriggers_31 -> CfnEventSourceMapping_29
+\tTriggers_31 -> CfnRole_30
+\tTriggers_31 -> CfnQueue_23
+\tTriggers_31 -> CfnFunction_25
 }`);
 });
 
@@ -103,6 +106,19 @@ function axiom(type: string): Graph {
       nodes: [corr, target], action: Action.CREATE,
     },
   ]);
+}
+
+function createTriggers(): Graph {
+  const q = Nodes.newNode('Queue', Domain.SOURCE, Action.CREATE);
+  const f = Nodes.newNode('Function', Domain.SOURCE, Action.CREATE);
+
+  return new Graph([
+    {
+      nodes: [q, f],
+      type: 'Triggers',
+    },
+  ]);
+
 }
 
 function triggers(): Graph {
