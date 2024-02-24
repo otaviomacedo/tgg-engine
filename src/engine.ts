@@ -236,10 +236,10 @@ export class Engine {
     return this.translate(host, Domain.TARGET, Domain.SOURCE);
   }
 
-  // TODO Strip out the source and correspondence
-  private translate(host: Graph, frm: Domain, _to: Domain) {
+  private translate(host: Graph, frm: Domain, to: Domain): Graph {
     let graphModified: boolean;
-    while (true) {
+
+    do {
       graphModified = false;
 
       for (let rule of this.rules) {
@@ -269,9 +269,10 @@ export class Engine {
           break;
         }
       }
+    } while (graphModified);
 
-      if (!graphModified) return;
-    }
+    const edges = host.edges.filter(edge => edge.nodes.every(n => n.domain === to));
+    return new Graph(edges);
   }
 }
 

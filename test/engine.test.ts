@@ -24,38 +24,17 @@ test('Queue triggers function - translate forward', () => {
     },
   ]);
 
-  engine.translateForward(host);
-
-  console.log(host.toString());
+  const result = engine.translateForward(host);
 
   // Use Graphviz to visualize this
-  expect(host.toString()).toEqual(`digraph G {
-\tQueue_17 -> Function_19
-\tQueue_18 -> Function_19
-\tQueueAxiom_20 -> Queue_17
-\tQueueAxiom_20 -> CfnQueue_21
-\tQueueAxiom_22 -> Queue_18
-\tQueueAxiom_22 -> CfnQueue_23
-\tFunctionAxiom_24 -> Function_19
-\tFunctionAxiom_24 -> CfnFunction_25
+  // TODO Merge Roles
+  expect(result.toString()).toEqual(`digraph G {
 \tCfnEventSourceMapping_26 -> CfnQueue_21
 \tCfnEventSourceMapping_26 -> CfnFunction_25
 \tCfnFunction_25 -> CfnRole_27
-\tTriggers_28 -> Queue_17
-\tTriggers_28 -> Function_19
-\tTriggers_28 -> CfnEventSourceMapping_26
-\tTriggers_28 -> CfnRole_27
-\tTriggers_28 -> CfnQueue_21
-\tTriggers_28 -> CfnFunction_25
 \tCfnEventSourceMapping_29 -> CfnQueue_23
 \tCfnEventSourceMapping_29 -> CfnFunction_25
 \tCfnFunction_25 -> CfnRole_30
-\tTriggers_31 -> Queue_18
-\tTriggers_31 -> Function_19
-\tTriggers_31 -> CfnEventSourceMapping_29
-\tTriggers_31 -> CfnRole_30
-\tTriggers_31 -> CfnQueue_23
-\tTriggers_31 -> CfnFunction_25
 }`);
 });
 
@@ -94,9 +73,9 @@ test('Queue triggers function - translate backward', () => {
   ]);
 
 
-  engine2.translateBackward(host);
+  const result = engine2.translateBackward(host);
 
-  console.log(host.toString());
+  console.log(result.toString());
 
 });
 
