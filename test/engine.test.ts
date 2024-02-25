@@ -1,8 +1,8 @@
 import { Action, Domain, Engine, Graph, Nodes } from '../src/engine';
 
 const engine = new Engine([
-  axiom('Queue'),
-  axiom('Function'),
+  defaultRule('Queue'),
+  defaultRule('Function'),
   triggers(),
 ]);
 
@@ -40,7 +40,7 @@ test('Queue triggers function - translate forward', () => {
 
 test('context', () => {
   // console.log(triggers().context(Domain.TARGET).toString());
-  console.log(axiom('Queue').context(Domain.SOURCE).toString());
+  console.log(defaultRule('Queue').context(Domain.SOURCE).toString());
 });
 
 test('Queue triggers function - translate backward', () => {
@@ -75,10 +75,10 @@ test('Queue triggers function - translate backward', () => {
 
 });
 
-function axiom(type: string): Graph {
+function defaultRule(type: string): Graph {
   const source = Nodes.newNode(type, Domain.SOURCE, Action.CREATE);
   const target = Nodes.newNode(`Cfn${type}`, Domain.TARGET, Action.CREATE);
-  const corr = Nodes.newNode(`${type}Axiom`, Domain.CORRESPONDENCE, Action.CREATE);
+  const corr = Nodes.newNode(`${type}Default`, Domain.CORRESPONDENCE, Action.CREATE);
 
   return new Graph([
     {
@@ -87,7 +87,7 @@ function axiom(type: string): Graph {
     {
       nodes: [corr, target], action: Action.CREATE,
     },
-  ], `${type}Axiom`);
+  ], `${type}Default`);
 }
 
 function triggers(): Graph {
@@ -97,8 +97,8 @@ function triggers(): Graph {
   const f_t = Nodes.newNode('CfnFunction', Domain.TARGET, Action.PRESERVE);
   const e = Nodes.newNode('CfnEventSourceMapping', Domain.TARGET, Action.CREATE);
   const r = Nodes.newNode('CfnRole', Domain.TARGET, Action.CREATE);
-  const q_c = Nodes.newNode('QueueAxiom', Domain.CORRESPONDENCE, Action.PRESERVE);
-  const f_c = Nodes.newNode('FunctionAxiom', Domain.CORRESPONDENCE, Action.PRESERVE);
+  const q_c = Nodes.newNode('QueueDefault', Domain.CORRESPONDENCE, Action.PRESERVE);
+  const f_c = Nodes.newNode('FunctionDefault', Domain.CORRESPONDENCE, Action.PRESERVE);
   const t_c = Nodes.newNode('Triggers', Domain.CORRESPONDENCE, Action.CREATE);
 
   return new Graph([
