@@ -12,7 +12,7 @@ const project = new typescript.TypeScriptProject({
         '*': ['@types/*'],
       },
     },
-    exclude: ['node_modules', '@types/*'],
+    exclude: ['node_modules', '@types/*', 'memoize'],
   },
   deps: ['subgraph-isomorphism', '@rimbu/bimap'], /* Runtime dependencies of this module. */
   // description: undefined,  /* The description is just a string that helps people understand the purpose of the package. */

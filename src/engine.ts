@@ -1,4 +1,5 @@
 import { BiMap } from '@rimbu/bimap';
+import memoize from 'memoize';
 import { getIsomorphicSubgraphs } from 'subgraph-isomorphism';
 
 export enum Action {
@@ -15,8 +16,13 @@ export enum Domain {
 export interface Node {
   type: string;
   domain: Domain;
+
+  // only applies to rule nodes
   action?: Action;
   data?: unknown;
+
+  // Only applies to correspondence nodes
+  isDefault?: boolean;
 }
 
 export interface Edge {
@@ -72,7 +78,15 @@ export class Graph {
     });
   }
 
-  outNeighbors(node: Node): Node[] {
+  reverse(): Graph {
+    return new Graph(this.edges.map(e => ({
+      ...e,
+      nodes: [e.nodes[1], e.nodes[0]],
+    })));
+  }
+
+  // TODO Implement this like predecessors
+  successors(node: Node): Node[] {
     const i = this.nodes.getKey(node)!;
     const result: Node[] = [];
 
@@ -85,6 +99,12 @@ export class Graph {
     return result;
   }
 
+  predecessors(node: Node): Set<Node> {
+    return new Set(this.edges
+      .filter(edge => edge.nodes[1] === node)
+      .map(edge => edge.nodes[0]));
+  }
+
   /**
    * Finds the correspondence nodes that point to all the input nodes that are in the input domain
    */
@@ -93,7 +113,7 @@ export class Graph {
     for (let i = 0; i < this.adjacencyMatrix.length; i++) {
       const node = this.nodes.getValue(i)!;
       if (node.domain === Domain.CORRESPONDENCE) {
-        const outNeighbors = new Set(this.outNeighbors(node).filter(n => n.domain === domain));
+        const outNeighbors = new Set(this.successors(node).filter(n => n.domain === domain));
 
         if (isEqualSets(outNeighbors, filter(nodes, n => n.domain === domain))) {
           result.push(node);
@@ -277,6 +297,84 @@ export class Engine {
 
     const edges = host.edges.filter(edge => edge.nodes.every(n => n.domain === to));
     return new Graph(edges);
+  }
+
+  private purge(graph: Graph): Graph {
+    const correspondents: Map<Node, Node> = new Map();
+    const covered: Set<Node> = new Set();
+    const toKeep: Set<Node> = new Set();
+
+    function untouched(node: Node): boolean {
+      const correspondent = correspondents.get(node);
+      return !covered.has(node) && correspondent != null && !covered.has(correspondent);
+    }
+
+    function prepare() {
+      graph.nodes
+        .filter(([_, node]) => node.domain === Domain.CORRESPONDENCE)
+        .forEach(([_, node]) => {
+          if (node.isDefault) {
+            correspondents.set();
+          } else {
+            graph.successors();
+          }
+        });
+    }
+
+    function markKeep(node: Node) {
+      if (toKeep.has(node)) {
+        return;
+      }
+      toKeep.add(node);
+      graph.successors(node).forEach(markKeep);
+    }
+
+    function markAll(g: Graph) {
+      g.nodes.forEach(([_, node]) => {
+        markKeep(node);
+      });
+    }
+
+    markAll(graph);
+    markAll(graph.reverse());
+
+    /*
+    Pseudo-code:
+
+    correspondents: Map<Node, Node>
+    covered: Set<Node>
+    toKeep: Set<Node>
+
+    untouched(node):
+      !covered.has(node) && !covered.has(correspondents.get(node))
+
+    prepare:
+      for each correspondence node c:
+        if c is default:
+          correspondents.set(c.source, c.target) // assuming only one source and only one target in this case
+        else:
+          for each n in c.sources ∪ c.targets:
+            covered.add(n)
+            toKeep.add(n)
+
+
+    markKeep(node):
+      if toKeep.has(node):
+        return;
+      toKeep.add(node)
+      for each s in successors(node):
+        markKeep(s)
+
+
+    markAll(graph):
+      for each node n in graph:
+        if untouched(node):
+          markKeep(node)
+
+    purge(graph):
+      markAll(graph)
+      markAll(reverse(graph))
+     */
   }
 }
 
