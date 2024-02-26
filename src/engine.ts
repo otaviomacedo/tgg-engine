@@ -1,5 +1,4 @@
 import { BiMap } from '@rimbu/bimap';
-import memoize from 'memoize';
 import { getIsomorphicSubgraphs } from 'subgraph-isomorphism';
 
 export enum Action {
@@ -37,6 +36,16 @@ export class Nodes {
   static newNode(type: string, domain: Domain, action?: Action): Node {
     return {
       type, domain, action, data: Nodes.idCounter++,
+    };
+  }
+
+  static newDefaultNode(type: string, action?: Action): Node {
+    return {
+      type,
+      action,
+      domain: Domain.CORRESPONDENCE,
+      data: Nodes.idCounter++,
+      isDefault: true,
     };
   }
 }
@@ -124,6 +133,8 @@ export class Graph {
   }
 
   addNode(node: Node) {
+    if (this.nodes.hasValue(node)) return;
+
     this.nodes = this.nodes.addEntry([this.nodes.size, node]);
 
     this.adjacencyMatrix.push(Array(this.adjacencyMatrix.length).fill(0));
@@ -237,8 +248,26 @@ export class Graph {
 
   toString(): string {
     const result: string[] = ['digraph G {'];
+
+    this.nodes.forEach(([_, node]) => {
+      let color: string;
+      switch (node.domain) {
+        case Domain.CORRESPONDENCE:
+          color = 'black';
+          break;
+        case Domain.SOURCE:
+          color = 'red';
+          break;
+        case Domain.TARGET:
+          color = 'blue';
+          break;
+      }
+      result.push(`${node.type}_${node.data} [color=${color}]`);
+    });
+
     this.edges.forEach(edge => {
-      result.push(`\t${edge.nodes[0].type}_${edge.nodes[0].data} -> ${edge.nodes[1].type}_${edge.nodes[1].data}`);
+      const label = edge.type ? `[label=${edge.type}]` : '';
+      result.push(`\t${edge.nodes[0].type}_${edge.nodes[0].data} -> ${edge.nodes[1].type}_${edge.nodes[1].data} ${label}`);
     });
     result.push('}');
 
@@ -275,7 +304,9 @@ export class Engine {
             // Only add what has not been matched
             .filter(([_, node]) => !match.has(node))
             .forEach(([_, node]) => {
-              const newNode = Nodes.newNode(node.type, node.domain);
+              const newNode = node.isDefault
+                ? Nodes.newDefaultNode(node.type)
+                : Nodes.newNode(node.type, node.domain);
               host.addNode(newNode);
               match.set(node, newNode);
             });
@@ -295,11 +326,11 @@ export class Engine {
       }
     } while (graphModified);
 
-    const edges = host.edges.filter(edge => edge.nodes.every(n => n.domain === to));
-    return new Graph(edges);
+
+    return this.purge(host, to);
   }
 
-  private purge(graph: Graph): Graph {
+  private purge(graph: Graph, domain: Domain): Graph {
     const correspondents: Map<Node, Node> = new Map();
     const covered: Set<Node> = new Set();
     const toKeep: Set<Node> = new Set();
@@ -312,11 +343,21 @@ export class Engine {
     function prepare() {
       graph.nodes
         .filter(([_, node]) => node.domain === Domain.CORRESPONDENCE)
-        .forEach(([_, node]) => {
-          if (node.isDefault) {
-            correspondents.set();
+        .forEach(([_, corr]) => {
+          if (corr.isDefault) {
+            const succ = graph.successors(corr);
+            // Assumption (later: invariant to be enforced): default correspondence nodes
+            // connect exactly one source to one target node.
+            const source = succ.find(n => n.domain === Domain.SOURCE)!;
+            const target = succ.find(n => n.domain === Domain.TARGET)!;
+            correspondents.set(source, target);
           } else {
-            graph.successors();
+            graph.successors(corr).forEach(n => {
+              covered.add(n);
+              if (n.domain === domain) {
+                toKeep.add(n);
+              }
+            });
           }
         });
     }
@@ -330,51 +371,26 @@ export class Engine {
     }
 
     function markAll(g: Graph) {
-      g.nodes.forEach(([_, node]) => {
-        markKeep(node);
-      });
+      g.nodes
+        .filter(([_, node]) => node.domain === domain && untouched(node))
+        .forEach(([_, node]) => markKeep(node));
     }
 
+    prepare();
     markAll(graph);
     markAll(graph.reverse());
 
-    /*
-    Pseudo-code:
+    // FIXME This won't work if the resulting graph is disconnected
+    const result = new Graph(
+      graph.edges.filter(edge =>
+        edge.nodes.every(node =>
+          toKeep.has(node))));
 
-    correspondents: Map<Node, Node>
-    covered: Set<Node>
-    toKeep: Set<Node>
+    [...toKeep.values()].forEach(node => {
+      result.addNode(node);
+    });
 
-    untouched(node):
-      !covered.has(node) && !covered.has(correspondents.get(node))
-
-    prepare:
-      for each correspondence node c:
-        if c is default:
-          correspondents.set(c.source, c.target) // assuming only one source and only one target in this case
-        else:
-          for each n in c.sources ∪ c.targets:
-            covered.add(n)
-            toKeep.add(n)
-
-
-    markKeep(node):
-      if toKeep.has(node):
-        return;
-      toKeep.add(node)
-      for each s in successors(node):
-        markKeep(s)
-
-
-    markAll(graph):
-      for each node n in graph:
-        if untouched(node):
-          markKeep(node)
-
-    purge(graph):
-      markAll(graph)
-      markAll(reverse(graph))
-     */
+    return result;
   }
 }
 

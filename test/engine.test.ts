@@ -3,6 +3,8 @@ import { Action, Domain, Engine, Graph, Nodes } from '../src/engine';
 const engine = new Engine([
   defaultRule('Queue'),
   defaultRule('Function'),
+  defaultRule('Role'),
+  defaultRule('EventSourceMapping'),
   triggers(),
 ]);
 
@@ -26,21 +28,41 @@ test('Queue triggers function - translate forward', () => {
   const result = engine.translateForward(host);
   console.log(result.toString());
 
-  // Use Graphviz to visualize this
   // TODO Merge Roles
   expect(result.toString()).toEqual(`digraph G {
-\tCfnEventSourceMapping_24 -> CfnQueue_19
-\tCfnEventSourceMapping_24 -> CfnFunction_23
-\tCfnFunction_23 -> CfnRole_25
-\tCfnEventSourceMapping_27 -> CfnQueue_21
-\tCfnEventSourceMapping_27 -> CfnFunction_23
-\tCfnFunction_23 -> CfnRole_28
+CfnEventSourceMapping_30 [color=blue]
+CfnQueue_25 [color=blue]
+CfnFunction_29 [color=blue]
+CfnRole_31 [color=blue]
+CfnEventSourceMapping_33 [color=blue]
+CfnQueue_27 [color=blue]
+CfnRole_34 [color=blue]
+\tCfnEventSourceMapping_30 -> CfnQueue_25 
+\tCfnEventSourceMapping_30 -> CfnFunction_29 
+\tCfnFunction_29 -> CfnRole_31 
+\tCfnEventSourceMapping_33 -> CfnQueue_27 
+\tCfnEventSourceMapping_33 -> CfnFunction_29 
+\tCfnFunction_29 -> CfnRole_34 
 }`);
-});
 
-test('context', () => {
-  // console.log(triggers().context(Domain.TARGET).toString());
-  console.log(defaultRule('Queue').context(Domain.SOURCE).toString());
+  /*
++--------------------------+     +--------------------------+
+|       CfnQueue_25        | <-- | CfnEventSourceMapping_30 |
++--------------------------+     +--------------------------+
+                                   |
+                                   |
+                                   v
++--------------------------+     +--------------------------+     +------------+
+| CfnEventSourceMapping_33 | --> |      CfnFunction_29      | --> | CfnRole_34 |
++--------------------------+     +--------------------------+     +------------+
+  |                                |
+  |                                |
+  v                                v
++--------------------------+     +--------------------------+
+|       CfnQueue_27        |     |        CfnRole_31        |
++--------------------------+     +--------------------------+
+   */
+
 });
 
 test('Queue triggers function - translate backward', () => {
@@ -71,14 +93,38 @@ test('Queue triggers function - translate backward', () => {
 
   const result = engine.translateBackward(host);
 
-  console.log(result.toString());
+  expect(result.toString()).toEqual(`digraph G {
+Queue_25 [color=red]
+Function_29 [color=red]
+Queue_27 [color=red]
+\tQueue_25 -> Function_29 
+\tQueue_27 -> Function_29 
+}`);
+
+  /*
++-------------+
+|  Queue_25   |
++-------------+
+  |
+  |
+  v
++-------------+
+| Function_29 |
++-------------+
+  ^
+  |
+  |
++-------------+
+|  Queue_27   |
++-------------+
+ */
 
 });
 
 function defaultRule(type: string): Graph {
   const source = Nodes.newNode(type, Domain.SOURCE, Action.CREATE);
   const target = Nodes.newNode(`Cfn${type}`, Domain.TARGET, Action.CREATE);
-  const corr = Nodes.newNode(`${type}Default`, Domain.CORRESPONDENCE, Action.CREATE);
+  const corr = Nodes.newDefaultNode(`${type}Default`, Action.CREATE);
 
   return new Graph([
     {
@@ -97,8 +143,8 @@ function triggers(): Graph {
   const f_t = Nodes.newNode('CfnFunction', Domain.TARGET, Action.PRESERVE);
   const e = Nodes.newNode('CfnEventSourceMapping', Domain.TARGET, Action.CREATE);
   const r = Nodes.newNode('CfnRole', Domain.TARGET, Action.CREATE);
-  const q_c = Nodes.newNode('QueueDefault', Domain.CORRESPONDENCE, Action.PRESERVE);
-  const f_c = Nodes.newNode('FunctionDefault', Domain.CORRESPONDENCE, Action.PRESERVE);
+  const q_c = Nodes.newDefaultNode('QueueDefault', Action.PRESERVE);
+  const f_c = Nodes.newDefaultNode('FunctionDefault', Action.PRESERVE);
   const t_c = Nodes.newNode('Triggers', Domain.CORRESPONDENCE, Action.CREATE);
 
   return new Graph([
