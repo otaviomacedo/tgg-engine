@@ -327,10 +327,10 @@ export class Engine {
     } while (graphModified);
 
 
-    return this.purge(host, to);
+    return this.prune(host, to);
   }
 
-  private purge(graph: Graph, domain: Domain): Graph {
+  private prune(graph: Graph, domain: Domain): Graph {
     const correspondents: Map<Node, Node> = new Map();
     const covered: Set<Node> = new Set();
     const toKeep: Set<Node> = new Set();
